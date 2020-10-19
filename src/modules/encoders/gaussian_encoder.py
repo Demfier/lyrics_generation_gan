@@ -30,17 +30,17 @@ class GaussianEncoder(VariationalEncoder):
         eps = prior.rsample()
         return eps.mul(std*temperature).add_(mean)
 
-    def forward(self, source_tokens: Dict[str, torch.LongTensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, mean: torch.Tensor, sigma: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Make a forward pass of the encoder, then returning the hidden state.
         """
-        final_state = self.encode(source_tokens)
-        mean = self._latent_to_mean(final_state)
-        logvar = self._latent_to_logvar(final_state)
+        # final_state = self.encode(source_tokens)
+        # mean = self._latent_to_mean(final_state)
+        # logvar = self._latent_to_logvar(final_state)
         prior = Normal(torch.zeros((mean.size(0), self.latent_dim), device=mean.device),
                        torch.ones((mean.size(0), self.latent_dim), device=mean.device))
-        posterior = Normal(mean, (0.5 * logvar).exp())
+        posterior = Normal(mean, sigma)
         return {
             'prior': prior,
             'posterior': posterior,

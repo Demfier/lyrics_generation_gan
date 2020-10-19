@@ -164,7 +164,7 @@ html_static_path = ['_static']
 # html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'conditional_text_generationdoc'
+htmlhelp_basename = 'lyrics_generation_gandoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -184,7 +184,7 @@ latex_elements = {
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
     ('index',
-     'conditional_text_generation.tex',
+     'lyrics_generation_gan.tex',
      u'Conditional Text Generation Documentation',
      u"Vikash", 'manual'),
 ]
@@ -215,7 +215,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'conditional_text_generation', u'Conditional Text Generation Documentation',
+    ('index', 'lyrics_generation_gan', u'Conditional Text Generation Documentation',
      [u"Vikash"], 1)
 ]
 
@@ -229,7 +229,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    ('index', 'conditional_text_generation', u'Conditional Text Generation Documentation',
+    ('index', 'lyrics_generation_gan', u'Conditional Text Generation Documentation',
      u"Vikash", 'Conditional Text Generation',
      'Models for conditional Text Generation', 'Miscellaneous'),
 ]

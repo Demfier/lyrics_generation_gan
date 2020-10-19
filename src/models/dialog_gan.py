@@ -5,7 +5,7 @@ import logging
 import random
 import torch.nn.functional as F
 from overrides import overrides
-from typing import List, Dict, Iterable
+from typing import List, Dict, Iterable, Tuple
 from allennlp.common.util import START_SYMBOL, END_SYMBOL
 from allennlp.common.params import Params
 from allennlp.models.model import Model
@@ -15,7 +15,7 @@ from allennlp.training.optimizers import Optimizer
 from allennlp.training.callbacks import Callback, Events, handle_event
 from allennlp.training.metrics import Average
 from allennlp.training import CallbackTrainer
-from src.modules.encoders import VariationalEncoder
+from src.modules.encoders import VariationalEncoder, GaussianEncoder
 from src.modules.decoders import VariationalDecoder
 from src.modules.metrics import NLTKSentenceBLEU
 from nltk.translate.bleu_score import SmoothingFunction
@@ -25,211 +25,211 @@ from torch.distributions import Normal
 logger = logging.getLogger(__name__)
 
 
-@Model.register("dialog_gan")
-class DialogGan(Model):
-    """
-    Our trainer wants a single model, so we cheat by encapsulating both the
-    generator and discriminator inside a single model. We'll access them individually.
-    """
-    # pylint: disable=abstract-method
-    def __init__(self,
-                 vocab: Vocabulary,
-                 encoder: VariationalEncoder,
-                 decoder: VariationalDecoder,
-                 generator: Model,
-                 discriminator: Model,
-                 mse_weight: float = 2.0,
-                 train_temperature: float = 1.0,
-                 inference_temperature: float = 1e-5,
-                 num_responses: int = 10) -> None:
-        super().__init__(vocab)
-        self._encoder = encoder
-        self._decoder = decoder
-        self._mse_weight = mse_weight
-        self.train_temperature = train_temperature
-        self.inference_temperature = inference_temperature
-        self._num_responses = num_responses
-        self._start_index = self.vocab.get_token_index(START_SYMBOL)
-        self._end_index = self.vocab.get_token_index(END_SYMBOL)
-        self._pad_index = self.vocab.get_token_index(self.vocab._padding_token)  # pylint: disable=protected-access
-        self.s_bleu4 = NLTKSentenceBLEU(n_hyps=self._num_responses, smoothing_function=SmoothingFunction().method7,
-                                        exclude_indices={self._pad_index, self._end_index, self._start_index},
-                                        prefix='_S_BLEU4')
-        self.n_bleu2 = NLTKSentenceBLEU(ngram_weights=(1/2, 1/2),
-                                        n_hyps=self._num_responses,
-                                        exclude_indices={self._pad_index, self._end_index, self._start_index},
-                                        prefix='_BLEU2')
+# @Model.register("dialog_gan")
+# class DialogGan(Model):
+#     """
+#     Our trainer wants a single model, so we cheat by encapsulating both the
+#     generator and discriminator inside a single model. We'll access them individually.
+#     """
+#     # pylint: disable=abstract-method
+#     def __init__(self,
+#                  vocab: Vocabulary,
+#                  encoder: VariationalEncoder,
+#                  decoder: VariationalDecoder,
+#                  generator: Model,
+#                  discriminator: Model,
+#                  mse_weight: float = 2.0,
+#                  train_temperature: float = 1.0,
+#                  inference_temperature: float = 1e-5,
+#                  num_responses: int = 10) -> None:
+#         super().__init__(vocab)
+#         self._encoder = encoder
+#         self._decoder = decoder
+#         self._mse_weight = mse_weight
+#         self.train_temperature = train_temperature
+#         self.inference_temperature = inference_temperature
+#         self._num_responses = num_responses
+#         self._start_index = self.vocab.get_token_index(START_SYMBOL)
+#         self._end_index = self.vocab.get_token_index(END_SYMBOL)
+#         self._pad_index = self.vocab.get_token_index(self.vocab._padding_token)  # pylint: disable=protected-access
+#         self.s_bleu4 = NLTKSentenceBLEU(n_hyps=self._num_responses, smoothing_function=SmoothingFunction().method7,
+#                                         exclude_indices={self._pad_index, self._end_index, self._start_index},
+#                                         prefix='_S_BLEU4')
+#         self.n_bleu2 = NLTKSentenceBLEU(ngram_weights=(1/2, 1/2),
+#                                         n_hyps=self._num_responses,
+#                                         exclude_indices={self._pad_index, self._end_index, self._start_index},
+#                                         prefix='_BLEU2')
 
-        # We need our optimizer to know which parameters came from
-        # which model, so we cheat by adding tags to them.
-        for param in generator.parameters():
-            setattr(param, '_generator', True)
-        for param in discriminator.parameters():
-            setattr(param, '_discriminator', True)
+#         # We need our optimizer to know which parameters came from
+#         # which model, so we cheat by adding tags to them.
+#         for param in generator.parameters():
+#             setattr(param, '_generator', True)
+#         for param in discriminator.parameters():
+#             setattr(param, '_discriminator', True)
 
-        self.generator = generator
-        self.discriminator = discriminator
-        self._disc_metrics = {
-            "dfl": Average(),
-            "dfacc": Average(),
-            "drl": Average(),
-            "dracc": Average(),
-        }
+#         self.generator = generator
+#         self.discriminator = discriminator
+#         self._disc_metrics = {
+#             "dfl": Average(),
+#             "dfacc": Average(),
+#             "drl": Average(),
+#             "dracc": Average(),
+#         }
 
-        self._gen_metrics = {
-            "_gl": Average(),
-            "gce": Average(),
-            "_gmse": Average(),
-            "_mean": Average(),
-            "_stdev": Average()
-        }
+#         self._gen_metrics = {
+#             "_gl": Average(),
+#             "gce": Average(),
+#             "_gmse": Average(),
+#             "_mean": Average(),
+#             "_stdev": Average()
+#         }
 
-    def encode_query(self, source_tokens: Dict[str, torch.Tensor], temperature):
-        query_dict = self._encoder(source_tokens)
-        self.generator._temperature = temperature
-        response_latent = self.generator(query_dict['prior'], query_dict['posterior'])["predicted_response"]
-        return response_latent
+#     def encode_query(self, source_tokens: Dict[str, torch.Tensor], temperature):
+#         query_dict = self._encoder(source_tokens)
+#         self.generator._temperature = temperature
+#         response_latent = self.generator(query_dict['prior'], query_dict['posterior'])["predicted_response"]
+#         return response_latent
 
-    def encode_dialog(self, encoder: VariationalEncoder,
-                      source_tokens: Dict[str, torch.Tensor], target_tokens: Dict[str, torch.Tensor], temperature):
-        query_dict = encoder(source_tokens)
-        response_dict = encoder(target_tokens)
-        query_dict = {'query_' + key: value for key, value in query_dict.items()}
-        response_dict = {'response_' + key: value for key, value in response_dict.items()}
-        dialog_dict = {**query_dict, **response_dict}
-        query_latent = encoder.reparametrize(dialog_dict['query_prior'], dialog_dict['query_posterior'], temperature)
-        response_latent = encoder.reparametrize(dialog_dict['response_prior'], dialog_dict['response_posterior'],
-                                                temperature)
-        if self.training:
-            query_latent.requires_grad_()
-            response_latent.requires_grad_()
-        dialog_latent = torch.cat((query_latent, response_latent), dim=-1)
-        dialog_dict['query_latent'] = query_latent
-        dialog_dict['response_latent'] = response_latent
-        dialog_dict['dialog_latent'] = dialog_latent
-        dialog_dict['query'] = source_tokens
-        dialog_dict['response'] = target_tokens
-        return dialog_dict
+#     def encode_dialog(self, encoder: VariationalEncoder,
+#                       source_tokens: Dict[str, torch.Tensor], target_tokens: Dict[str, torch.Tensor], temperature):
+#         query_dict = encoder(source_tokens)
+#         response_dict = encoder(target_tokens)
+#         query_dict = {'query_' + key: value for key, value in query_dict.items()}
+#         response_dict = {'response_' + key: value for key, value in response_dict.items()}
+#         dialog_dict = {**query_dict, **response_dict}
+#         query_latent = encoder.reparametrize(dialog_dict['query_prior'], dialog_dict['query_posterior'], temperature)
+#         response_latent = encoder.reparametrize(dialog_dict['response_prior'], dialog_dict['response_posterior'],
+#                                                 temperature)
+#         if self.training:
+#             query_latent.requires_grad_()
+#             response_latent.requires_grad_()
+#         dialog_latent = torch.cat((query_latent, response_latent), dim=-1)
+#         dialog_dict['query_latent'] = query_latent
+#         dialog_dict['response_latent'] = response_latent
+#         dialog_dict['dialog_latent'] = dialog_latent
+#         dialog_dict['query'] = source_tokens
+#         dialog_dict['response'] = target_tokens
+#         return dialog_dict
 
-    def forward(self,
-                source_tokens: Dict[str, torch.LongTensor],
-                target_tokens: Dict[str, torch.LongTensor],  # Needed only for validation BLEU
-                stage: List[str]):
-        if self.training:
-            stage = stage[0]
-        else:
-            stage = "generator"
-        temperature = self.train_temperature if self.training else self.inference_temperature
-        dialog_dict = self.encode_dialog(self._encoder, source_tokens, target_tokens, temperature)
-        if stage == "discriminator_real":
-            dialog_latent = dialog_dict["dialog_latent"]
-            batch_size = dialog_latent.size(0)
-            device = dialog_latent.device
-            labels = torch.ones([batch_size, 1]).to(device)
-            output = self.discriminator(dialog_latent, labels)
-            self._disc_metrics['drl'](output['loss'])
-            self._disc_metrics['dracc'](output['accuracy'])
-        elif stage == "discriminator_fake":
-            predicted_latent = self.generator(dialog_dict['query_prior'],
-                                              dialog_dict['query_posterior'])["predicted_dialog"]
-            batch_size = predicted_latent.size(0)
-            device = predicted_latent.device
-            labels = torch.zeros([batch_size, 1]).to(device)
-            output = self.discriminator(predicted_latent, labels)
-            self._disc_metrics['dfl'](output['loss'])
-            self._disc_metrics['dfacc'](output['accuracy'])
-        elif stage == "generator":
-            response_mean = dialog_dict["response_posterior"].mean
-            output = self.generator(dialog_dict['query_prior'], dialog_dict['query_posterior'], self.discriminator)
-            predicted_response = output["predicted_response"]
-            mse = F.mse_loss(predicted_response, response_mean)
-            self._gen_metrics['gce'](output['loss'])
-            output["loss"] += mse*self._mse_weight
-            self._gen_metrics['_gl'](output['loss'])
-            self._gen_metrics['_gmse'](mse)
-            self._gen_metrics['_mean'](predicted_response.mean())
-            self._gen_metrics['_stdev'](predicted_response.std())
-            if not self.training:
-                expanded_prior = Normal(dialog_dict['query_prior'].mean.repeat(self._num_responses, 1),
-                                        dialog_dict['query_prior'].stddev.repeat(self._num_responses, 1))
-                expanded_posterior = Normal(dialog_dict['query_posterior'].mean.repeat(self._num_responses, 1),
-                                            dialog_dict['query_posterior'].stddev.repeat(self._num_responses, 1))
-                batch_size = predicted_response.size(0)
-                responses = self.generator(expanded_prior, expanded_posterior)["predicted_response"]
-                decoder_dict = self._decoder.generate(responses)
+#     def forward(self,
+#                 source_tokens: Dict[str, torch.LongTensor],
+#                 target_tokens: Dict[str, torch.LongTensor],  # Needed only for validation BLEU
+#                 stage: List[str]):
+#         if self.training:
+#             stage = stage[0]
+#         else:
+#             stage = "generator"
+#         temperature = self.train_temperature if self.training else self.inference_temperature
+#         dialog_dict = self.encode_dialog(self._encoder, source_tokens, target_tokens, temperature)
+#         if stage == "discriminator_real":
+#             dialog_latent = dialog_dict["dialog_latent"]
+#             batch_size = dialog_latent.size(0)
+#             device = dialog_latent.device
+#             labels = torch.ones([batch_size, 1]).to(device)
+#             output = self.discriminator(dialog_latent, labels)
+#             self._disc_metrics['drl'](output['loss'])
+#             self._disc_metrics['dracc'](output['accuracy'])
+#         elif stage == "discriminator_fake":
+#             predicted_latent = self.generator(dialog_dict['query_prior'],
+#                                               dialog_dict['query_posterior'])["predicted_dialog"]
+#             batch_size = predicted_latent.size(0)
+#             device = predicted_latent.device
+#             labels = torch.zeros([batch_size, 1]).to(device)
+#             output = self.discriminator(predicted_latent, labels)
+#             self._disc_metrics['dfl'](output['loss'])
+#             self._disc_metrics['dfacc'](output['accuracy'])
+#         elif stage == "generator":
+#             response_mean = dialog_dict["response_posterior"].mean
+#             output = self.generator(dialog_dict['query_prior'], dialog_dict['query_posterior'], self.discriminator)
+#             predicted_response = output["predicted_response"]
+#             mse = F.mse_loss(predicted_response, response_mean)
+#             self._gen_metrics['gce'](output['loss'])
+#             output["loss"] += mse*self._mse_weight
+#             self._gen_metrics['_gl'](output['loss'])
+#             self._gen_metrics['_gmse'](mse)
+#             self._gen_metrics['_mean'](predicted_response.mean())
+#             self._gen_metrics['_stdev'](predicted_response.std())
+#             if not self.training:
+#                 expanded_prior = Normal(dialog_dict['query_prior'].mean.repeat(self._num_responses, 1),
+#                                         dialog_dict['query_prior'].stddev.repeat(self._num_responses, 1))
+#                 expanded_posterior = Normal(dialog_dict['query_posterior'].mean.repeat(self._num_responses, 1),
+#                                             dialog_dict['query_posterior'].stddev.repeat(self._num_responses, 1))
+#                 batch_size = predicted_response.size(0)
+#                 responses = self.generator(expanded_prior, expanded_posterior)["predicted_response"]
+#                 decoder_dict = self._decoder.generate(responses)
 
-                # Be Careful with the permutation
-                predictions = decoder_dict["predictions"].view(self._num_responses, batch_size, -1).permute(1, 0, 2)
-                output.update({"predictions": predictions})
-                if target_tokens:
-                    self.s_bleu4(predictions, target_tokens["tokens"])
-                    self.n_bleu2(predictions, target_tokens["tokens"])
-        else:
-            raise ValueError(f"Invalid stage: {stage}")
-        return output
+#                 # Be Careful with the permutation
+#                 predictions = decoder_dict["predictions"].view(self._num_responses, batch_size, -1).permute(1, 0, 2)
+#                 output.update({"predictions": predictions})
+#                 if target_tokens:
+#                     self.s_bleu4(predictions, target_tokens["tokens"])
+#                     self.n_bleu2(predictions, target_tokens["tokens"])
+#         else:
+#             raise ValueError(f"Invalid stage: {stage}")
+#         return output
 
-    @overrides
-    def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-        metrics = {key: float(metric.get_metric(reset=reset)) for key, metric in self._gen_metrics.items()}
-        if self.training:
-            metrics.update({key: float(metric.get_metric(reset=reset)) for key, metric in self._disc_metrics.items()})
-        else:
-            metrics.update(self.generator.get_metrics(reset=reset))
-            metrics.update(self.s_bleu4.get_metric(reset=reset))
-            metrics.update(self.n_bleu2.get_metric(reset=reset))
-        return metrics
+#     @overrides
+#     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
+#         metrics = {key: float(metric.get_metric(reset=reset)) for key, metric in self._gen_metrics.items()}
+#         if self.training:
+#             metrics.update({key: float(metric.get_metric(reset=reset)) for key, metric in self._disc_metrics.items()})
+#         else:
+#             metrics.update(self.generator.get_metrics(reset=reset))
+#             metrics.update(self.s_bleu4.get_metric(reset=reset))
+#             metrics.update(self.n_bleu2.get_metric(reset=reset))
+#         return metrics
 
-    def decode_predictions(self, predicted_indices: torch.Tensor) -> List[str]:
-        if not isinstance(predicted_indices, numpy.ndarray):
-            predicted_indices = predicted_indices.detach().cpu().numpy()
-        all_predicted_sentences = []
-        for batch_indices in predicted_indices:
-            # Check if multiple responses are generated for each sentence
-            # if yes, decode all of them
-            if len(batch_indices.shape) > 1:
-                index_list = batch_indices.tolist()
-            else:
-                index_list = list(batch_indices.tolist())
+#     def decode_predictions(self, predicted_indices: torch.Tensor) -> List[str]:
+#         if not isinstance(predicted_indices, numpy.ndarray):
+#             predicted_indices = predicted_indices.detach().cpu().numpy()
+#         all_predicted_sentences = []
+#         for batch_indices in predicted_indices:
+#             # Check if multiple responses are generated for each sentence
+#             # if yes, decode all of them
+#             if len(batch_indices.shape) > 1:
+#                 index_list = batch_indices.tolist()
+#             else:
+#                 index_list = list(batch_indices.tolist())
 
-            indices = index_list
-            if self._end_index in indices:
-                indices = indices[:indices.index(self._end_index)]
-            predicted_tokens = [self.vocab.get_token_from_index(x) for x in indices]
-            all_predicted_sentences.append(' '.join(predicted_tokens[1:]))
-        return all_predicted_sentences
+#             indices = index_list
+#             if self._end_index in indices:
+#                 indices = indices[:indices.index(self._end_index)]
+#             predicted_tokens = [self.vocab.get_token_from_index(x) for x in indices]
+#             all_predicted_sentences.append(' '.join(predicted_tokens[1:]))
+#         return all_predicted_sentences
 
-    @overrides
-    def decode(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        """
-        Finalize predictions.
-        This method overrides ``Model.decode``, which gets called after ``Model.forward``, at test
-        time, to finalize predictions. The logic for the decoder part of the encoder-decoder lives
-        within the ``forward`` method.
-        This method trims the output predictions to the first end symbol, replaces indices with
-        corresponding tokens, and adds a field called ``predicted_tokens`` to the ``output_dict``.
-        """
-        predicted_indices = output_dict["predictions"]
-        if not isinstance(predicted_indices, numpy.ndarray):
-            predicted_indices = predicted_indices.detach().cpu().numpy()
-        all_predicted_sentences = []
-        for batch_indices in predicted_indices:
-            # Check if multiple responses are generated for each sentence
-            # if yes, decode all of them
-            if len(batch_indices.shape) > 1:
-                index_list = batch_indices.tolist()
-            else:
-                index_list = list(batch_indices.tolist())
+#     @overrides
+#     def decode(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+#         """
+#         Finalize predictions.
+#         This method overrides ``Model.decode``, which gets called after ``Model.forward``, at test
+#         time, to finalize predictions. The logic for the decoder part of the encoder-decoder lives
+#         within the ``forward`` method.
+#         This method trims the output predictions to the first end symbol, replaces indices with
+#         corresponding tokens, and adds a field called ``predicted_tokens`` to the ``output_dict``.
+#         """
+#         predicted_indices = output_dict["predictions"]
+#         if not isinstance(predicted_indices, numpy.ndarray):
+#             predicted_indices = predicted_indices.detach().cpu().numpy()
+#         all_predicted_sentences = []
+#         for batch_indices in predicted_indices:
+#             # Check if multiple responses are generated for each sentence
+#             # if yes, decode all of them
+#             if len(batch_indices.shape) > 1:
+#                 index_list = batch_indices.tolist()
+#             else:
+#                 index_list = list(batch_indices.tolist())
 
-            row_predicted_sentence = []
-            for indices in index_list:
-                # Collect indices till the first end_symbol
-                if self._end_index in indices:
-                    indices = indices[:indices.index(self._end_index)]
-                predicted_tokens = [self.vocab.get_token_from_index(x) for x in indices]
-                row_predicted_sentence.append(' '.join(predicted_tokens[1:]))
-            all_predicted_sentences.append(row_predicted_sentence)
-        output_dict["predicted_sentences"] = all_predicted_sentences
-        return output_dict
+#             row_predicted_sentence = []
+#             for indices in index_list:
+#                 # Collect indices till the first end_symbol
+#                 if self._end_index in indices:
+#                     indices = indices[:indices.index(self._end_index)]
+#                 predicted_tokens = [self.vocab.get_token_from_index(x) for x in indices]
+#                 row_predicted_sentence.append(' '.join(predicted_tokens[1:]))
+#             all_predicted_sentences.append(row_predicted_sentence)
+#         output_dict["predicted_sentences"] = all_predicted_sentences
+#         return output_dict
 
 
 @Optimizer.register("gan")
@@ -330,3 +330,236 @@ class DialogSampleGen(Callback):
         output_dicts = trainer.model.forward_on_instances(sample_instances)
         for instance, output_dict in zip(sample_instances, output_dicts):
             self._display_dialog(instance, output_dict)
+
+@Model.register("dialog_gan_latent")
+class DialogGan(Model):
+    """
+    Our trainer wants a single model, so we cheat by encapsulating both the
+    generator and discriminator inside a single model. We'll access them individually.
+    """
+    # pylint: disable=abstract-method
+    def __init__(self,
+                 vocab: Vocabulary,
+                 generator: Model,
+                 discriminator: Model,
+                 latent_dim: int = 128,
+                 mse_weight: float = 2.0,
+                 train_temperature: float = 1.0,
+                 inference_temperature: float = 1e-5,
+                 num_responses: int = 10) -> None:
+        super().__init__(vocab)
+        self._mse_weight = mse_weight
+        self.train_temperature = train_temperature
+        self.inference_temperature = inference_temperature
+        self._latent_dim = latent_dim
+        self._num_responses = num_responses
+        self._start_index = self.vocab.get_token_index(START_SYMBOL)
+        self._end_index = self.vocab.get_token_index(END_SYMBOL)
+        self._pad_index = self.vocab.get_token_index(self.vocab._padding_token)  # pylint: disable=protected-access
+        self.s_bleu4 = NLTKSentenceBLEU(n_hyps=self._num_responses, smoothing_function=SmoothingFunction().method7,
+                                        exclude_indices={self._pad_index, self._end_index, self._start_index},
+                                        prefix='_S_BLEU4')
+        self.n_bleu2 = NLTKSentenceBLEU(ngram_weights=(1/2, 1/2),
+                                        n_hyps=self._num_responses,
+                                        exclude_indices={self._pad_index, self._end_index, self._start_index},
+                                        prefix='_BLEU2')
+
+        # We need our optimizer to know which parameters came from
+        # which model, so we cheat by adding tags to them.
+        for param in generator.parameters():
+            setattr(param, '_generator', True)
+        for param in discriminator.parameters():
+            setattr(param, '_discriminator', True)
+
+        self.generator = generator
+        self.discriminator = discriminator
+        self._disc_metrics = {
+            "dfl": Average(),
+            "dfacc": Average(),
+            "drl": Average(),
+            "dracc": Average(),
+        }
+
+        self._gen_metrics = {
+            "_gl": Average(),
+            "gce": Average(),
+            "_gmse": Average(),
+            "_mean": Average(),
+            "_stdev": Average()
+        }
+
+    def reparametrize(self, prior: Normal,
+                      posterior: Normal,
+                      temperature: float = 1.0) -> torch.Tensor:
+        """
+        Creating the latent vector using the reparameterization trick
+        """
+        mean = posterior.mean
+        std = posterior.stddev
+        eps = prior.rsample()
+        return eps.mul(std*temperature).add_(mean)
+
+    def encoder(self, mean: torch.Tensor, sigma: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        prior = Normal(torch.zeros((mean.size(0), self._latent_dim), device=mean.device),
+                       torch.ones((mean.size(0), self._latent_dim), device=mean.device))
+        posterior = Normal(mean, sigma)
+        return {
+            'prior': prior,
+            'posterior': posterior,
+        }
+
+    def encode_query(self, source_tokens: Dict[str, torch.Tensor], temperature):
+        query_dict = self._encoder(source_tokens)
+        self.generator._temperature = temperature
+        response_latent = self.generator(query_dict['prior'], query_dict['posterior'])["predicted_response"]
+        return response_latent
+
+    def encode_dialog(self,
+                      source_mu: torch.Tensor,
+                      source_std: torch.Tensor,
+                      target_mu: torch.Tensor,
+                      temperature):
+        query_dict = self.encoder(source_mu, source_std)
+        response_dict = self.encoder(target_mu, torch.zeros(target_mu.shape))
+        query_dict = {'query_' + key: value for key, value in query_dict.items()}
+        response_dict = {'response_' + key: value for key, value in response_dict.items()}
+        dialog_dict = {**query_dict, **response_dict}
+        query_latent = self.reparametrize(dialog_dict['query_prior'],
+                                             dialog_dict['query_posterior'],
+                                             temperature)
+        response_latent = self.reparametrize(dialog_dict['response_prior'],
+                                                dialog_dict['response_posterior'],
+                                                temperature)
+
+        if self.training:
+            query_latent.requires_grad_()
+            response_latent.requires_grad_()
+        dialog_latent = torch.cat((query_latent, response_latent), dim=-1)
+        dialog_dict['query_latent'] = query_latent
+        dialog_dict['response_latent'] = response_latent
+        dialog_dict['dialog_latent'] = dialog_latent
+        return dialog_dict
+
+    def forward(self,
+                source_mu: torch.Tensor,  # these are actually latent codes
+                source_std: torch.Tensor,  # these are actually latent codes
+                target_mu: torch.Tensor,  # these are actually latent codes
+                stage: List[str]):
+        if self.training:
+            stage = stage[0]
+        else:
+            stage = "generator"
+        temperature = self.train_temperature if self.training else self.inference_temperature
+        dialog_dict = self.encode_dialog(source_mu, source_std, target_mu, temperature)
+        if stage == "discriminator_real":
+            dialog_latent = dialog_dict["dialog_latent"]
+            batch_size = dialog_latent.size(0)
+            device = dialog_latent.device
+            labels = torch.ones([batch_size, 1]).to(device)
+            output = self.discriminator(dialog_latent, labels)
+            self._disc_metrics['drl'](output['loss'])
+            self._disc_metrics['dracc'](output['accuracy'])
+        elif stage == "discriminator_fake":
+            predicted_latent = self.generator(dialog_dict['query_prior'],
+                                              dialog_dict['query_posterior'])["predicted_dialog"]
+            batch_size = predicted_latent.size(0)
+            device = predicted_latent.device
+            labels = torch.zeros([batch_size, 1]).to(device)
+            output = self.discriminator(predicted_latent, labels)
+            self._disc_metrics['dfl'](output['loss'])
+            self._disc_metrics['dfacc'](output['accuracy'])
+        elif stage == "generator":
+            response_mean = dialog_dict["response_posterior"].mean
+            output = self.generator(dialog_dict['query_prior'], dialog_dict['query_posterior'], self.discriminator)
+            predicted_response = output["predicted_response"]
+            mse = F.mse_loss(predicted_response, response_mean)
+            self._gen_metrics['gce'](output['loss'])
+            output["loss"] += mse*self._mse_weight
+            self._gen_metrics['_gl'](output['loss'])
+            self._gen_metrics['_gmse'](mse)
+            self._gen_metrics['_mean'](predicted_response.mean())
+            self._gen_metrics['_stdev'](predicted_response.std())
+            if not self.training:
+                expanded_prior = Normal(dialog_dict['query_prior'].mean.repeat(self._num_responses, 1),
+                                        dialog_dict['query_prior'].stddev.repeat(self._num_responses, 1))
+                expanded_posterior = Normal(dialog_dict['query_posterior'].mean.repeat(self._num_responses, 1),
+                                            dialog_dict['query_posterior'].stddev.repeat(self._num_responses, 1))
+                batch_size = predicted_response.size(0)
+                responses = self.generator(expanded_prior, expanded_posterior)["predicted_response"]
+                output.update({'predictions': responses})
+
+                # decoder_dict = self._decoder.generate(responses)
+
+                # # Be Careful with the permutation
+                # predictions = decoder_dict["predictions"].view(self._num_responses, batch_size, -1).permute(1, 0, 2)
+                # output.update({"predictions": predictions})
+                # if target_tokens:
+                #     self.s_bleu4(predictions, target_tokens["tokens"])
+                #     self.n_bleu2(predictions, target_tokens["tokens"])
+        else:
+            raise ValueError(f"Invalid stage: {stage}")
+        return output
+
+    @overrides
+    def get_metrics(self, reset: bool = False) -> Dict[str, float]:
+        metrics = {key: float(metric.get_metric(reset=reset)) for key, metric in self._gen_metrics.items()}
+        if self.training:
+            metrics.update({key: float(metric.get_metric(reset=reset)) for key, metric in self._disc_metrics.items()})
+        else:
+            metrics.update(self.generator.get_metrics(reset=reset))
+            metrics.update(self.s_bleu4.get_metric(reset=reset))
+            metrics.update(self.n_bleu2.get_metric(reset=reset))
+        return metrics
+
+    def decode_predictions(self, predicted_indices: torch.Tensor) -> List[str]:
+        if not isinstance(predicted_indices, numpy.ndarray):
+            predicted_indices = predicted_indices.detach().cpu().numpy()
+        all_predicted_sentences = []
+        for batch_indices in predicted_indices:
+            # Check if multiple responses are generated for each sentence
+            # if yes, decode all of them
+            if len(batch_indices.shape) > 1:
+                index_list = batch_indices.tolist()
+            else:
+                index_list = list(batch_indices.tolist())
+
+            indices = index_list
+            if self._end_index in indices:
+                indices = indices[:indices.index(self._end_index)]
+            predicted_tokens = [self.vocab.get_token_from_index(x) for x in indices]
+            all_predicted_sentences.append(' '.join(predicted_tokens[1:]))
+        return all_predicted_sentences
+
+    @overrides
+    def decode(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """
+        Finalize predictions.
+        This method overrides ``Model.decode``, which gets called after ``Model.forward``, at test
+        time, to finalize predictions. The logic for the decoder part of the encoder-decoder lives
+        within the ``forward`` method.
+        This method trims the output predictions to the first end symbol, replaces indices with
+        corresponding tokens, and adds a field called ``predicted_tokens`` to the ``output_dict``.
+        """
+        predicted_indices = output_dict["predictions"]
+        if not isinstance(predicted_indices, numpy.ndarray):
+            predicted_indices = predicted_indices.detach().cpu().numpy()
+        all_predicted_sentences = []
+        for batch_indices in predicted_indices:
+            # Check if multiple responses are generated for each sentence
+            # if yes, decode all of them
+            if len(batch_indices.shape) > 1:
+                index_list = batch_indices.tolist()
+            else:
+                index_list = list(batch_indices.tolist())
+
+            row_predicted_sentence = []
+            for indices in index_list:
+                # Collect indices till the first end_symbol
+                if self._end_index in indices:
+                    indices = indices[:indices.index(self._end_index)]
+                predicted_tokens = [self.vocab.get_token_from_index(x) for x in indices]
+                row_predicted_sentence.append(' '.join(predicted_tokens[1:]))
+            all_predicted_sentences.append(row_predicted_sentence)
+        output_dict["predicted_sentences"] = all_predicted_sentences
+        return output_dict

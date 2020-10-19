@@ -4,6 +4,7 @@ separately outputs
 """
 import pickle
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 DATA_PATH = 'data/raw'
 
@@ -38,10 +39,15 @@ def prepare_data():
             not_found += 1
 
     print(len(data))
+
+    train, val = train_test_split(data, test_size=0.2)
     print(f'Total {not_found} missing specs')
     with open(f'data/processed/gan_data.pkl', 'wb') as f:
         pickle.dump(data, f)
-
+    with open(f'data/processed/train_data.pkl', 'wb') as f:
+        pickle.dump(train, f)
+    with open(f'data/processed/val_data.pkl', 'wb') as f:
+        pickle.dump(val, f)
 
 if __name__ == '__main__':
     prepare_data()

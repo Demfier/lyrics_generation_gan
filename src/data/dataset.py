@@ -2,6 +2,8 @@
 
 import csv
 import logging
+import pickle
+import numpy as np
 from overrides import overrides
 from typing import Dict
 from allennlp.common.checks import ConfigurationError
@@ -12,8 +14,8 @@ from allennlp.common.file_utils import cached_path
 from allennlp.data.tokenizers import Token, Tokenizer
 from allennlp.data.token_indexers import TokenIndexer
 from allennlp.common.util import START_SYMBOL, END_SYMBOL
-from allennlp.data.fields import TextField, LabelField, MetadataField
-from allennlp.data.tokenizers import WordTokenizer
+from allennlp.data.fields import ArrayField, TextField, LabelField, MetadataField
+# from allennlp.data.tokenizers import WordTokenizer old
 from allennlp.data.token_indexers import SingleIdTokenIndexer
 
 
@@ -211,3 +213,42 @@ class SentenceReader(DatasetReader):
         sentence_field = TextField(tokenized_string, self._token_indexers)
 
         return Instance({self._key: sentence_field})
+
+
+@DatasetReader.register("lyrics-gan")
+class LyricsGanDatasetReader(DatasetReader):
+    """
+    We already have pre-trained VAE vectors
+    """
+    def __init__(self,
+                 lazy: bool = False) -> None:
+        super().__init__(lazy)
+        self.states = ["discriminator_real", "discriminator_fake", "generator"]
+        self.state = self._state_generator()
+
+    def _state_generator(self):
+        while True:
+            for state in self.states:
+                yield state
+
+    def _get_state(self):
+        return next(self.state)
+
+    @overrides
+    def _read(self, file_path):
+        """
+        file_path: contains spec-VAE's mu, sigma and text-VAE's mu as a dict
+        """
+        with open(cached_path(file_path), "rb") as data_file:
+            logger.info("Reading instances from lines in file at: %s", file_path)
+            for _id, _dict in enumerate(pickle.load(data_file)):
+                yield self.dict_to_instance(_dict)
+
+    def dict_to_instance(self, array_dict: [str, np.array]) -> Instance:
+        stage_field = MetadataField(self._get_state())
+        return Instance({
+            'source_mu': ArrayField(array_dict['spec_mu']),
+            'source_std': ArrayField(array_dict['spec_std']),
+            'target_mu': ArrayField(array_dict['lyrics_mu']),
+            'stage': stage_field
+            })
