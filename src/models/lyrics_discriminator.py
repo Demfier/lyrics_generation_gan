@@ -7,8 +7,8 @@ from allennlp.nn.initializers import InitializerApplicator
 from torch.nn import Linear, BCEWithLogitsLoss, Sequential, BatchNorm1d, LeakyReLU
 
 
-@Model.register('dialog-discriminator')
-class DialogDiscriminator(Model):
+@Model.register('lyrics-discriminator')
+class LyricsDiscriminator(Model):
     def __init__(self,
                  input_dim: int,
                  hidden_dim: int,

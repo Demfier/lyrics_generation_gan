@@ -1,0 +1,5 @@
+*.pyc
+data/*
+runs/*
+reports/*
+saved_models/*

@@ -9,15 +9,15 @@ from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 logger = logging.getLogger(__name__)
 
 
-def compute_smoothed_bleu(dialog_dict, ngram=4):
+def compute_smoothed_bleu(lyrics_dict, ngram=4):
     weights = tuple([1/ngram]*ngram)
-    targets = [target.split() for target in dialog_dict['target']]
-    num_responses = len(dialog_dict) - 2
+    targets = [target.split() for target in lyrics_dict['target']]
+    num_responses = len(lyrics_dict) - 2
 
-    num_samples = len(dialog_dict['query'])
+    num_samples = len(lyrics_dict['query'])
     bleu_scores = np.zeros((num_samples, num_responses))
     for rno in range(num_responses):
-        responses = [response.split() for response in dialog_dict[f'response_{rno+1}']]
+        responses = [response.split() for response in lyrics_dict[f'response_{rno+1}']]
         assert len(targets) == len(responses)
         for sid, (ref, hyp) in enumerate(zip(targets, responses)):
             try:
@@ -67,11 +67,11 @@ def inter_diversity(sentences, n):
     return np.nanmean([batch_diversity(samples, n) for samples in sentences])
 
 
-def compute_diversity(dialog_dict):
-    num_responses = len(dialog_dict) - 2
+def compute_diversity(lyrics_dict):
+    num_responses = len(lyrics_dict) - 2
     responses_list = []
     for rno in range(num_responses):
-        responses = [response for response in dialog_dict[f'response_{rno+1}']]
+        responses = [response for response in lyrics_dict[f'response_{rno+1}']]
         responses_list.append(responses)
     response_array = np.array(responses_list).T
     flattened_responses = [response for responses in responses_list for response in responses]

@@ -25,8 +25,8 @@ from torch.distributions import Normal
 logger = logging.getLogger(__name__)
 
 
-# @Model.register("dialog_gan")
-# class DialogGan(Model):
+# @Model.register("lyrics_gan")
+# class LyricsGan(Model):
 #     """
 #     Our trainer wants a single model, so we cheat by encapsulating both the
 #     generator and discriminator inside a single model. We'll access them individually.
@@ -90,26 +90,26 @@ logger = logging.getLogger(__name__)
 #         response_latent = self.generator(query_dict['prior'], query_dict['posterior'])["predicted_response"]
 #         return response_latent
 
-#     def encode_dialog(self, encoder: VariationalEncoder,
+#     def encode_lyrics(self, encoder: VariationalEncoder,
 #                       source_tokens: Dict[str, torch.Tensor], target_tokens: Dict[str, torch.Tensor], temperature):
 #         query_dict = encoder(source_tokens)
 #         response_dict = encoder(target_tokens)
 #         query_dict = {'query_' + key: value for key, value in query_dict.items()}
 #         response_dict = {'response_' + key: value for key, value in response_dict.items()}
-#         dialog_dict = {**query_dict, **response_dict}
-#         query_latent = encoder.reparametrize(dialog_dict['query_prior'], dialog_dict['query_posterior'], temperature)
-#         response_latent = encoder.reparametrize(dialog_dict['response_prior'], dialog_dict['response_posterior'],
+#         lyrics_dict = {**query_dict, **response_dict}
+#         query_latent = encoder.reparametrize(lyrics_dict['query_prior'], lyrics_dict['query_posterior'], temperature)
+#         response_latent = encoder.reparametrize(lyrics_dict['response_prior'], lyrics_dict['response_posterior'],
 #                                                 temperature)
 #         if self.training:
 #             query_latent.requires_grad_()
 #             response_latent.requires_grad_()
-#         dialog_latent = torch.cat((query_latent, response_latent), dim=-1)
-#         dialog_dict['query_latent'] = query_latent
-#         dialog_dict['response_latent'] = response_latent
-#         dialog_dict['dialog_latent'] = dialog_latent
-#         dialog_dict['query'] = source_tokens
-#         dialog_dict['response'] = target_tokens
-#         return dialog_dict
+#         lyrics_latent = torch.cat((query_latent, response_latent), dim=-1)
+#         lyrics_dict['query_latent'] = query_latent
+#         lyrics_dict['response_latent'] = response_latent
+#         lyrics_dict['lyrics_latent'] = lyrics_latent
+#         lyrics_dict['query'] = source_tokens
+#         lyrics_dict['response'] = target_tokens
+#         return lyrics_dict
 
 #     def forward(self,
 #                 source_tokens: Dict[str, torch.LongTensor],
@@ -120,18 +120,18 @@ logger = logging.getLogger(__name__)
 #         else:
 #             stage = "generator"
 #         temperature = self.train_temperature if self.training else self.inference_temperature
-#         dialog_dict = self.encode_dialog(self._encoder, source_tokens, target_tokens, temperature)
+#         lyrics_dict = self.encode_lyrics(self._encoder, source_tokens, target_tokens, temperature)
 #         if stage == "discriminator_real":
-#             dialog_latent = dialog_dict["dialog_latent"]
-#             batch_size = dialog_latent.size(0)
-#             device = dialog_latent.device
+#             lyrics_latent = lyrics_dict["lyrics_latent"]
+#             batch_size = lyrics_latent.size(0)
+#             device = lyrics_latent.device
 #             labels = torch.ones([batch_size, 1]).to(device)
-#             output = self.discriminator(dialog_latent, labels)
+#             output = self.discriminator(lyrics_latent, labels)
 #             self._disc_metrics['drl'](output['loss'])
 #             self._disc_metrics['dracc'](output['accuracy'])
 #         elif stage == "discriminator_fake":
-#             predicted_latent = self.generator(dialog_dict['query_prior'],
-#                                               dialog_dict['query_posterior'])["predicted_dialog"]
+#             predicted_latent = self.generator(lyrics_dict['query_prior'],
+#                                               lyrics_dict['query_posterior'])["predicted_lyrics"]
 #             batch_size = predicted_latent.size(0)
 #             device = predicted_latent.device
 #             labels = torch.zeros([batch_size, 1]).to(device)
@@ -139,8 +139,8 @@ logger = logging.getLogger(__name__)
 #             self._disc_metrics['dfl'](output['loss'])
 #             self._disc_metrics['dfacc'](output['accuracy'])
 #         elif stage == "generator":
-#             response_mean = dialog_dict["response_posterior"].mean
-#             output = self.generator(dialog_dict['query_prior'], dialog_dict['query_posterior'], self.discriminator)
+#             response_mean = lyrics_dict["response_posterior"].mean
+#             output = self.generator(lyrics_dict['query_prior'], lyrics_dict['query_posterior'], self.discriminator)
 #             predicted_response = output["predicted_response"]
 #             mse = F.mse_loss(predicted_response, response_mean)
 #             self._gen_metrics['gce'](output['loss'])
@@ -150,10 +150,10 @@ logger = logging.getLogger(__name__)
 #             self._gen_metrics['_mean'](predicted_response.mean())
 #             self._gen_metrics['_stdev'](predicted_response.std())
 #             if not self.training:
-#                 expanded_prior = Normal(dialog_dict['query_prior'].mean.repeat(self._num_responses, 1),
-#                                         dialog_dict['query_prior'].stddev.repeat(self._num_responses, 1))
-#                 expanded_posterior = Normal(dialog_dict['query_posterior'].mean.repeat(self._num_responses, 1),
-#                                             dialog_dict['query_posterior'].stddev.repeat(self._num_responses, 1))
+#                 expanded_prior = Normal(lyrics_dict['query_prior'].mean.repeat(self._num_responses, 1),
+#                                         lyrics_dict['query_prior'].stddev.repeat(self._num_responses, 1))
+#                 expanded_posterior = Normal(lyrics_dict['query_posterior'].mean.repeat(self._num_responses, 1),
+#                                             lyrics_dict['query_posterior'].stddev.repeat(self._num_responses, 1))
 #                 batch_size = predicted_response.size(0)
 #                 responses = self.generator(expanded_prior, expanded_posterior)["predicted_response"]
 #                 decoder_dict = self._decoder.generate(responses)
@@ -300,10 +300,10 @@ class TrainGan(Callback):
         trainer.optimizer.stage = stage
 
 
-@Callback.register("generate_dialog_samples")
-class DialogSampleGen(Callback):
+@Callback.register("generate_lyrics_samples")
+class LyricsSampleGen(Callback):
     """
-    This callback handles generating of sample dialog
+    This callback handles generating of sample lyrics
     """
     def __init__(self,
                  validation_data: Iterable[Instance],
@@ -313,7 +313,7 @@ class DialogSampleGen(Callback):
         self.num_samples = num_samples
         self.num_replies = num_replies
 
-    def _display_dialog(self, instance, output_dict):
+    def _display_lyrics(self, instance, output_dict):
         query_tokens = [str(token) for token in instance['source_tokens']]
         response_tokens = [str(token) for token in instance['target_tokens']]
         predicted_sentences = output_dict["predicted_sentences"]
@@ -324,15 +324,15 @@ class DialogSampleGen(Callback):
 
     @handle_event(Events.VALIDATE, priority=1000)
     def generate_sample(self, trainer: 'CallbackTrainer'):
-        logger.info("generating sample dialog")
+        logger.info("generating sample lyrics")
         trainer.model.eval()
         sample_instances = random.sample(self.instances, self.num_samples)
         output_dicts = trainer.model.forward_on_instances(sample_instances)
         for instance, output_dict in zip(sample_instances, output_dicts):
-            self._display_dialog(instance, output_dict)
+            self._display_lyrics(instance, output_dict)
 
-@Model.register("dialog_gan_latent")
-class DialogGan(Model):
+@Model.register("lyrics_gan_latent")
+class LyricsGan(Model):
     """
     Our trainer wants a single model, so we cheat by encapsulating both the
     generator and discriminator inside a single model. We'll access them individually.
@@ -414,7 +414,7 @@ class DialogGan(Model):
         response_latent = self.generator(query_dict['prior'], query_dict['posterior'])["predicted_response"]
         return response_latent
 
-    def encode_dialog(self,
+    def encode_lyrics(self,
                       source_mu: torch.Tensor,
                       source_std: torch.Tensor,
                       target_mu: torch.Tensor,
@@ -424,22 +424,22 @@ class DialogGan(Model):
         response_dict = self.encoder(target_mu, torch.zeros(target_mu.shape))
         query_dict = {'query_' + key: value for key, value in query_dict.items()}
         response_dict = {'response_' + key: value for key, value in response_dict.items()}
-        dialog_dict = {**query_dict, **response_dict}
-        query_latent = self.reparametrize(dialog_dict['query_prior'],
-                                             dialog_dict['query_posterior'],
+        lyrics_dict = {**query_dict, **response_dict}
+        query_latent = self.reparametrize(lyrics_dict['query_prior'],
+                                          lyrics_dict['query_posterior'],
+                                          temperature)
+        response_latent = self.reparametrize(lyrics_dict['response_prior'],
+                                             lyrics_dict['response_posterior'],
                                              temperature)
-        response_latent = self.reparametrize(dialog_dict['response_prior'],
-                                                dialog_dict['response_posterior'],
-                                                temperature)
 
         if self.training:
             query_latent.requires_grad_()
             response_latent.requires_grad_()
-        dialog_latent = torch.cat((query_latent, response_latent), dim=-1)
-        dialog_dict['query_latent'] = query_latent
-        dialog_dict['response_latent'] = response_latent
-        dialog_dict['dialog_latent'] = dialog_latent
-        return dialog_dict
+        lyrics_latent = torch.cat((query_latent, response_latent), dim=-1)
+        lyrics_dict['query_latent'] = query_latent
+        lyrics_dict['response_latent'] = response_latent
+        lyrics_dict['lyrics_latent'] = lyrics_latent
+        return lyrics_dict
 
     def forward(self,
                 source_mu: torch.Tensor,  # these are actually latent codes
@@ -451,18 +451,18 @@ class DialogGan(Model):
         else:
             stage = "generator"
         temperature = self.train_temperature if self.training else self.inference_temperature
-        dialog_dict = self.encode_dialog(source_mu, source_std, target_mu, temperature)
+        lyrics_dict = self.encode_lyrics(source_mu, source_std, target_mu, temperature)
         if stage == "discriminator_real":
-            dialog_latent = dialog_dict["dialog_latent"]
-            batch_size = dialog_latent.size(0)
-            device = dialog_latent.device
+            lyrics_latent = lyrics_dict["lyrics_latent"]
+            batch_size = lyrics_latent.size(0)
+            device = lyrics_latent.device
             labels = torch.ones([batch_size, 1]).to(device)
-            output = self.discriminator(dialog_latent, labels)
+            output = self.discriminator(lyrics_latent, labels)
             self._disc_metrics['drl'](output['loss'])
             self._disc_metrics['dracc'](output['accuracy'])
         elif stage == "discriminator_fake":
-            predicted_latent = self.generator(dialog_dict['query_prior'],
-                                              dialog_dict['query_posterior'])["predicted_dialog"]
+            predicted_latent = self.generator(lyrics_dict['query_prior'],
+                                              lyrics_dict['query_posterior'])["predicted_lyrics"]
             batch_size = predicted_latent.size(0)
             device = predicted_latent.device
             labels = torch.zeros([batch_size, 1]).to(device)
@@ -470,8 +470,8 @@ class DialogGan(Model):
             self._disc_metrics['dfl'](output['loss'])
             self._disc_metrics['dfacc'](output['accuracy'])
         elif stage == "generator":
-            response_mean = dialog_dict["response_posterior"].mean
-            output = self.generator(dialog_dict['query_prior'], dialog_dict['query_posterior'], self.discriminator)
+            response_mean = lyrics_dict["response_posterior"].mean
+            output = self.generator(lyrics_dict['query_prior'], lyrics_dict['query_posterior'], self.discriminator)
             predicted_response = output["predicted_response"]
             mse = F.mse_loss(predicted_response, response_mean)
             self._gen_metrics['gce'](output['loss'])
@@ -481,10 +481,10 @@ class DialogGan(Model):
             self._gen_metrics['_mean'](predicted_response.mean())
             self._gen_metrics['_stdev'](predicted_response.std())
             if not self.training:
-                expanded_prior = Normal(dialog_dict['query_prior'].mean.repeat(self._num_responses, 1),
-                                        dialog_dict['query_prior'].stddev.repeat(self._num_responses, 1))
-                expanded_posterior = Normal(dialog_dict['query_posterior'].mean.repeat(self._num_responses, 1),
-                                            dialog_dict['query_posterior'].stddev.repeat(self._num_responses, 1))
+                expanded_prior = Normal(lyrics_dict['query_prior'].mean.repeat(self._num_responses, 1),
+                                        lyrics_dict['query_prior'].stddev.repeat(self._num_responses, 1))
+                expanded_posterior = Normal(lyrics_dict['query_posterior'].mean.repeat(self._num_responses, 1),
+                                            lyrics_dict['query_posterior'].stddev.repeat(self._num_responses, 1))
                 batch_size = predicted_response.size(0)
                 responses = self.generator(expanded_prior, expanded_posterior)["predicted_response"]
                 output.update({'predictions': responses})
@@ -541,25 +541,25 @@ class DialogGan(Model):
         This method trims the output predictions to the first end symbol, replaces indices with
         corresponding tokens, and adds a field called ``predicted_tokens`` to the ``output_dict``.
         """
-        predicted_indices = output_dict["predictions"]
-        if not isinstance(predicted_indices, numpy.ndarray):
-            predicted_indices = predicted_indices.detach().cpu().numpy()
-        all_predicted_sentences = []
-        for batch_indices in predicted_indices:
-            # Check if multiple responses are generated for each sentence
-            # if yes, decode all of them
-            if len(batch_indices.shape) > 1:
-                index_list = batch_indices.tolist()
-            else:
-                index_list = list(batch_indices.tolist())
+        predicted_latent = output_dict["predictions"]
+        if not isinstance(predicted_latent, numpy.ndarray):
+            predicted_latent = predicted_latent.detach().cpu().numpy()
+        # all_predicted_sentences = []
+        # for batch_indices in predicted_indices:
+        #     # Check if multiple responses are generated for each sentence
+        #     # if yes, decode all of them
+        #     if len(batch_indices.shape) > 1:
+        #         index_list = batch_indices.tolist()
+        #     else:
+        #         index_list = list(batch_indices.tolist())
 
-            row_predicted_sentence = []
-            for indices in index_list:
-                # Collect indices till the first end_symbol
-                if self._end_index in indices:
-                    indices = indices[:indices.index(self._end_index)]
-                predicted_tokens = [self.vocab.get_token_from_index(x) for x in indices]
-                row_predicted_sentence.append(' '.join(predicted_tokens[1:]))
-            all_predicted_sentences.append(row_predicted_sentence)
-        output_dict["predicted_sentences"] = all_predicted_sentences
-        return output_dict
+        #     row_predicted_sentence = []
+        #     for indices in index_list:
+        #         # Collect indices till the first end_symbol
+        #         if self._end_index in indices:
+        #             indices = indices[:indices.index(self._end_index)]
+        #         predicted_tokens = [self.vocab.get_token_from_index(x) for x in indices]
+        #         row_predicted_sentence.append(' '.join(predicted_tokens[1:]))
+        #     all_predicted_sentences.append(row_predicted_sentence)
+        # output_dict["predicted_sentences"] = all_predicted_sentences
+        return predicted_latent

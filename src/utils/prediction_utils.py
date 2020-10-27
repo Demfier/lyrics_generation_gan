@@ -25,9 +25,9 @@ def get_responses(model: Model, device: int, instances: List[Instance],
     return predictions_dict
 
 
-def save_dialog_dict(dialog_dict: Dict[str, List[str]], save_path: str):
-    ddkeys = list(dialog_dict.keys())
-    ddvals = list(dialog_dict.values())
+def save_lyrics_dict(lyrics_dict: Dict[str, List[str]], save_path: str):
+    ddkeys = list(lyrics_dict.keys())
+    ddvals = list(lyrics_dict.values())
     num_samples = len(ddvals[0])
 
     with open(save_path, 'w') as sp:

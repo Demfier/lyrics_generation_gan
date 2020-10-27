@@ -23,11 +23,11 @@ def perplexity(lm_path, pickle_path):
     model = kenlm.LanguageModel(lm_path)
     ppl = Average()
     with open(pickle_path, 'rb') as sf:
-        dialog_dict = pickle.load(sf)
-        num_responses = len(dialog_dict) - 2
+        lyrics_dict = pickle.load(sf)
+        num_responses = len(lyrics_dict) - 2
         responses_list = []
         for rno in range(num_responses):
-            responses = [response for response in dialog_dict[f'response_{rno+1}']]
+            responses = [response for response in lyrics_dict[f'response_{rno+1}']]
             responses_list.append(responses)
         flattened_responses = [response for responses in responses_list for response in responses]
         with tqdm(flattened_responses, desc='Computing PPL') as pbar:
@@ -43,13 +43,13 @@ def perplexity(lm_path, pickle_path):
 @evaluate.command()
 def overlap(pickle_path, ngram):
     with open(pickle_path, 'rb') as dfile:
-        dialog_dict = pickle.load(dfile)
-        print(eval_utils.compute_smoothed_bleu(dialog_dict, ngram=ngram))
+        lyrics_dict = pickle.load(dfile)
+        print(eval_utils.compute_smoothed_bleu(lyrics_dict, ngram=ngram))
 
 
 @click.argument('pickle_path', type=click.Path(exists=True))
 @evaluate.command()
 def diversity(pickle_path):
     with open(pickle_path, 'rb') as dfile:
-        dialog_dict = pickle.load(dfile)
-        print(eval_utils.compute_diversity(dialog_dict))
+        lyrics_dict = pickle.load(dfile)
+        print(eval_utils.compute_diversity(lyrics_dict))

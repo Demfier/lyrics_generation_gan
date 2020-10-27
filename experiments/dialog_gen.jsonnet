@@ -1,7 +1,7 @@
 local SEED = 0;
 local CUDA = 0;
-local READER = "dialog-gan";
-local PREDICTOR = 'dialog-gen';
+local READER = "lyrics-gan";
+local PREDICTOR = 'lyrics-gen';
 
 local LATENT_DIM = 128;
 local BATCH_SIZE = 32;
@@ -24,28 +24,28 @@ local GEN_LEARNING_RATE = 0.001;
     "type": READER,
   },
   "vocabulary": {
-    "directory_path": "models/dialog_vae/vocabulary"
+    "directory_path": "models/lyrics_vae/vocabulary"
   },
-  "train_data_path": "data/interim/dialog/train_dialog.tsv",
-  "validation_data_path": "data/interim/dialog/valid_dialog.tsv",
+  "train_data_path": "data/interim/lyrics/train_lyrics.tsv",
+  "validation_data_path": "data/interim/lyrics/valid_lyrics.tsv",
   "model": {
-    "type": "dialog_gan",
+    "type": "lyrics_gan",
     "encoder": {
       "_pretrained": {
-        "archive_file": "models/dialog_vae/model.tar.gz",
+        "archive_file": "models/lyrics_vae/model.tar.gz",
         "module_path": '_encoder',
         "freeze": true
       },
     },
     "decoder": {
       "_pretrained": {
-        "archive_file": "models/dialog_vae/model.tar.gz",
+        "archive_file": "models/lyrics_vae/model.tar.gz",
         "module_path": '_decoder',
         "freeze": true,
       },
     },
     "generator": {
-      "type": "dialog-generator",
+      "type": "lyrics-generator",
       "latent_dim": LATENT_DIM,
       'activation': ACTIVATION,
       "initializer": [
@@ -53,7 +53,7 @@ local GEN_LEARNING_RATE = 0.001;
       ]
     },
     "discriminator": {
-      "type": "dialog-discriminator",
+      "type": "lyrics-discriminator",
       "input_dim": 2*LATENT_DIM,
       "hidden_dim": LATENT_DIM,
       "initializer": [
@@ -88,7 +88,7 @@ local GEN_LEARNING_RATE = 0.001;
       "checkpoint",
       {"type": "track_metrics", "patience": PATIENCE, "validation_metric": "+_S_BLEU4F"},
       "validate",
-      "generate_dialog_samples",
+      "generate_lyrics_samples",
       "log_to_tensorboard"
     ]
   }

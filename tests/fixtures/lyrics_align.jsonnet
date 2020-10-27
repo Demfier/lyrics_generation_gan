@@ -28,22 +28,22 @@ local INIT_UNIFORM_RANGE_AROUND_ZERO = 0.1;
     "type": READER
   },
   "vocabulary": {
-    "directory_path": "models/dialog_vae/vocabulary"
+    "directory_path": "models/lyrics_vae/vocabulary"
   },
-  "train_data_path": "tests/fixtures/dialog_samples.tsv",
-  "validation_data_path": "tests/fixtures/dialog_samples.tsv",
+  "train_data_path": "tests/fixtures/lyrics_samples.tsv",
+  "validation_data_path": "tests/fixtures/lyrics_samples.tsv",
   "model": {
-    "type": "dialog_aligner",
+    "type": "lyrics_aligner",
     "variational_encoder": {
       "_pretrained": {
-        "archive_file": "models/dialog_vae/model.tar.gz",
+        "archive_file": "models/lyrics_vae/model.tar.gz",
         "module_path": '_encoder',
         "freeze": true
       },
     },
     "decoder": {
       "_pretrained": {
-        "archive_file": "models/dialog_vae/model.tar.gz",
+        "archive_file": "models/lyrics_vae/model.tar.gz",
         "module_path": '_decoder',
         "freeze": true,
       },
@@ -75,7 +75,7 @@ local INIT_UNIFORM_RANGE_AROUND_ZERO = 0.1;
       "checkpoint",
       {"type": "track_metrics", "patience": PATIENCE, "validation_metric": "+F-BLEU"},
       "validate",
-      "generate_dialog_samples",
+      "generate_lyrics_samples",
       "log_to_tensorboard"
     ]
   }

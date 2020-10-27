@@ -11,8 +11,8 @@ from allennlp.nn.activations import Activation
 from src.modules.encoders import GaussianEncoder
 
 
-@Model.register("dialog-generator")
-class DialogGenerator(Model):
+@Model.register("lyrics-generator")
+class LyricsGenerator(Model):
     def __init__(self,
                  latent_dim: int,
                  activation: Activation = LeakyReLU(0.2),
@@ -45,9 +45,9 @@ class DialogGenerator(Model):
         query_latent = GaussianEncoder.reparametrize(query_prior, query_posterior, temperature)
         pred_latent = self._latent_mapper(query_latent)
         output_dict = {}
-        pred_dialog = torch.cat((query_latent, pred_latent), dim=-1)
+        pred_lyrics = torch.cat((query_latent, pred_latent), dim=-1)
         if discriminator is not None:
-            predicted = discriminator(pred_dialog)["output"]
+            predicted = discriminator(pred_lyrics)["output"]
             # We desire for the discriminator to think this is real.
             desired = torch.ones_like(predicted)
             ce_loss = self._ce_loss(predicted, desired)
@@ -56,8 +56,8 @@ class DialogGenerator(Model):
 
         output_dict.update({
             'predicted_response': pred_latent,
-            'predicted_dialog': pred_dialog,
-            'output': pred_dialog,
+            'predicted_lyrics': pred_lyrics,
+            'output': pred_lyrics,
         })
         return output_dict
 

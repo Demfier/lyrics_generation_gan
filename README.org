@@ -4,14 +4,10 @@
    pip install pyro-ppl
 ** Running Experiments
    Copy data from my server data folder
-   - VAE\\
-     ~allennlp train -s models/dialog_vae --include-package src experiments/vae.jsonnet~
-   - GAN (run after VAE)\\
      ~allennlp train -s models/lyrics_gan_mse --include-package src experiments/lyrics_gen.jsonnet~
 ** Important Code
    - experiments
-     - vae.jsonnet (Configuration for VAE)
-     - dialog_gen.jsonnet (Configuration for GAN with MSE)
+     - lyrics_gen.jsonnet (Configuration for GAN with MSE)
    - src
      - data
        - dataset.py (DatasetReaders)
@@ -26,6 +22,6 @@
        - annealer.py (Different Annealing Schedules)
      - models
        - vae.py (Variational Autoencoder, SampleGenerator)
-       - dialog_generator.py (Generator Module for GAN)
-       - dialog_discriminator.py (Discriminator Module for GAN)
-       - dialog_gan.py (Dialog Gan, GanOptimizer and SampleGenerator)
+       - lyrics_generator.py (Generator Module for GAN)
+       - lyrics_discriminator.py (Discriminator Module for GAN)
+       - lyrics_gan.py (Lyrics Gan, GanOptimizer and SampleGenerator)

@@ -1,7 +1,7 @@
 local SEED = 23;
 local CUDA = 0;
 local READER = "lyrics-gan";
-local PREDICTOR = 'dialog-gen';
+local PREDICTOR = 'lyrics-gen';
 
 local LATENT_DIM = 128;
 local BATCH_SIZE = 32;
@@ -26,10 +26,10 @@ local GEN_LEARNING_RATE = 0.001;
   "train_data_path": "data/processed/train_data.pkl",
   "validation_data_path": "data/processed/valid_data.pkl",
   "model": {
-    "type": "dialog_gan_latent",
+    "type": "lyrics_gan_latent",
     "latent_dim": LATENT_DIM,
     "generator": {
-      "type": "dialog-generator",
+      "type": "lyrics-generator",
       "latent_dim": LATENT_DIM,
       'activation': ACTIVATION,
       "initializer": [
@@ -37,7 +37,7 @@ local GEN_LEARNING_RATE = 0.001;
       ]
     },
     "discriminator": {
-      "type": "dialog-discriminator",
+      "type": "lyrics-discriminator",
       "input_dim": 2*LATENT_DIM,
       "hidden_dim": LATENT_DIM,
       "initializer": [

@@ -172,7 +172,7 @@ class SampleGen(Callback):
 
     @handle_event(Events.VALIDATE, priority=1000)
     def generate_sample(self, trainer: 'CallbackTrainer'):
-        logger.info("generating sample dialog")
+        logger.info("generating sample lyrics")
         trainer.model.eval()
         gen_tokens = trainer.model.generate(self.num_samples)['predicted_tokens'][0]
         gen_sent = ' '.join(gen_tokens[1:])

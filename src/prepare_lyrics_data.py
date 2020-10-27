@@ -34,7 +34,8 @@ def prepare_data():
             data.append({'spec_mu': modified_img_mu[spec_id],
                         'spec_std': modified_img_std[spec_id],
                         'lyrics_mu': np.array([o['z']]),
-                        'lyrics': o['line']})
+                        'lyrics': o['line'],
+                        'spec_id': o['audioClip']})
         except KeyError as e:
             not_found += 1
 
@@ -46,7 +47,7 @@ def prepare_data():
         pickle.dump(data, f)
     with open(f'data/processed/train_data.pkl', 'wb') as f:
         pickle.dump(train, f)
-    with open(f'data/processed/val_data.pkl', 'wb') as f:
+    with open(f'data/processed/valid_data.pkl', 'wb') as f:
         pickle.dump(val, f)
 
 if __name__ == '__main__':
