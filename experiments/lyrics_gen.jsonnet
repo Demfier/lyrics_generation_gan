@@ -47,8 +47,9 @@ local GEN_LEARNING_RATE = 0.001;
     "inference_temperature": TEMPERATURE,
   },
   "iterator": {
-    "type": "basic",
-    "batch_size" : BATCH_SIZE
+    "type": "homogeneous_batch",
+    "batch_size" : BATCH_SIZE,
+    "partition_key": "stage"
   },
   "trainer": {
     "type": 'callback',
@@ -64,6 +65,12 @@ local GEN_LEARNING_RATE = 0.001;
         "type": DISC_OPTIMIZER,
         "lr": DISC_LEARNING_RATE
       }
-    }
+    },
+    "callbacks": [
+      "gan-callback",
+      "checkpoint",
+      {"type": "track_metrics", "patience": PATIENCE, "validation_metric": "+_S_BLEU4F"},
+      "log_to_tensorboard"
+    ]
   }
 }

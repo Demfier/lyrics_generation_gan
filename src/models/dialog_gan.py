@@ -394,13 +394,12 @@ class DialogGan(Model):
         """
         Creating the latent vector using the reparameterization trick
         """
-        mean = posterior.mean
-        std = posterior.stddev
-        eps = prior.rsample()
+        mean = posterior.mean.to(self.device)
+        std = posterior.stddev.to(self.device)
+        eps = prior.rsample().to(self.device)
         return eps.mul(std*temperature).add_(mean)
 
     def encoder(self, mean: torch.Tensor, sigma: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-
         prior = Normal(torch.zeros((mean.size(0), self._latent_dim), device=mean.device),
                        torch.ones((mean.size(0), self._latent_dim), device=mean.device))
         posterior = Normal(mean, sigma)
@@ -420,6 +419,7 @@ class DialogGan(Model):
                       source_std: torch.Tensor,
                       target_mu: torch.Tensor,
                       temperature):
+        self.device = source_mu.device
         query_dict = self.encoder(source_mu, source_std)
         response_dict = self.encoder(target_mu, torch.zeros(target_mu.shape))
         query_dict = {'query_' + key: value for key, value in query_dict.items()}

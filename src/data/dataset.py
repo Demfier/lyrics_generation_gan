@@ -246,9 +246,10 @@ class LyricsGanDatasetReader(DatasetReader):
 
     def dict_to_instance(self, array_dict: [str, np.array]) -> Instance:
         stage_field = MetadataField(self._get_state())
+        # print(array_dict['spec_mu'].reshape(-1))
         return Instance({
-            'source_mu': ArrayField(array_dict['spec_mu']),
-            'source_std': ArrayField(array_dict['spec_std']),
-            'target_mu': ArrayField(array_dict['lyrics_mu']),
+            'source_mu': ArrayField(array_dict['spec_mu'].reshape(-1)),
+            'source_std': ArrayField(array_dict['spec_std'].reshape(-1)),
+            'target_mu': ArrayField(array_dict['spec_mu'].reshape(-1)),
             'stage': stage_field
             })
