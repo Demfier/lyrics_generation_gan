@@ -418,10 +418,11 @@ class LyricsGan(Model):
                       source_mu: torch.Tensor,
                       source_std: torch.Tensor,
                       target_mu: torch.Tensor,
+                      target_std: torch.Tensor,
                       temperature):
         self.device = source_mu.device
         query_dict = self.encoder(source_mu, source_std)
-        response_dict = self.encoder(target_mu, torch.zeros(target_mu.shape))
+        response_dict = self.encoder(target_mu, target_std)
         query_dict = {'query_' + key: value for key, value in query_dict.items()}
         response_dict = {'response_' + key: value for key, value in response_dict.items()}
         lyrics_dict = {**query_dict, **response_dict}
@@ -445,13 +446,14 @@ class LyricsGan(Model):
                 source_mu: torch.Tensor,  # these are actually latent codes
                 source_std: torch.Tensor,  # these are actually latent codes
                 target_mu: torch.Tensor,  # these are actually latent codes
+                target_std: torch.Tensor,  # these are actually latent codes
                 stage: List[str]):
         if self.training:
             stage = stage[0]
         else:
             stage = "generator"
         temperature = self.train_temperature if self.training else self.inference_temperature
-        lyrics_dict = self.encode_lyrics(source_mu, source_std, target_mu, temperature)
+        lyrics_dict = self.encode_lyrics(source_mu, source_std, target_mu, target_std, temperature)
         if stage == "discriminator_real":
             lyrics_latent = lyrics_dict["lyrics_latent"]
             batch_size = lyrics_latent.size(0)

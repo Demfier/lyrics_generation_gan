@@ -21,7 +21,8 @@ def prepare_data():
         try:
             data.append({'spec_mu': spec_latent,
                         'spec_std': image_std[spec_id],
-                        'lyrics_mu': spec_latent,
+                        'lyrics_mu': spec_latent,  # dummy latent var
+                        'lyrics_std': spec_latent,  # dummy latent var
                         'spec_id': spec_id})
         except KeyError as e:
             not_found += 1

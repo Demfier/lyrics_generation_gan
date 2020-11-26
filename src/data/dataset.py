@@ -170,5 +170,6 @@ class LyricsGanDatasetReader(DatasetReader):
             'source_mu': ArrayField(array_dict['spec_mu'].reshape(-1)),
             'source_std': ArrayField(array_dict['spec_std'].reshape(-1)),
             'target_mu': ArrayField(array_dict['lyrics_mu'].reshape(-1)),
+            'target_std': ArrayField(array_dict['lyrics_std'].reshape(-1)),
             'stage': stage_field,
             })
