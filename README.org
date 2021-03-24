@@ -1,4 +1,4 @@
-* Conditional Text Generation
+* GAN training for Lyrics Generation (latent to latent)
 ** Installation
    Install allennlp from github master (latest) using conda or pip
    pip install pyro-ppl
