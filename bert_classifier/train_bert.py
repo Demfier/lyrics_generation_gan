@@ -1,5 +1,3 @@
-# prepare dataset
-
 import os
 import re
 
@@ -12,18 +10,17 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 RAW_DATA_PATH = 'data/raw/bert_classifier_data/'
 
 
+def fix_apos(line):
+    # handle cases like " 's" " 'll" " 're" " n't" etc
+    apostrophe = r"\s'([a-z]+)"
+    special = r"\s(n't)"
+    return re.sub(special, r"n't", re.sub(apostrophe, r"'\1", line))
+
+
 def text_processor(file_path):
     """constructs sentences from the tokenized outputs"""
-
-    # handle cases like " 's" " 'll" " 're" " n't" etc
-    apostrophe = r'\s\'([a-z]+)|\s(n\'t)'
     with open(file_path) as f:
-        return [re.sub(apostrophe, r"'\1", l.strip()) for l in f.readlines()]
-
-
-def text_saver(text_lines, save_path):
-    with open(save_path, 'w') as f:
-        f.writelines(text_lines)
+        return [fix_apos(l.strip()) for l in f.readlines()]
 
 
 def read_lyrics_data(data_dir):
@@ -92,8 +89,8 @@ model = BertForSequenceClassification.from_pretrained(
 )
 
 training_args = TrainingArguments(
-    output_dir='./results',          # output directory
-    num_train_epochs=3,              # total # of training epochs
+    output_dir='./bert_models',          # output directory
+    num_train_epochs=15,              # total # of training epochs
     per_device_train_batch_size=16,  # batch size per device during training
     per_device_eval_batch_size=64,   # batch size for evaluation
     warmup_steps=500,                # number of warmup steps for learning rate scheduler
