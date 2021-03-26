@@ -1,10 +1,10 @@
-* Conditional Text Generation
+* GAN training for Lyrics Generation (latent to latent)
 ** Installation
    Install allennlp from github master (latest) using conda or pip
    pip install pyro-ppl
 ** Running Experiments
-   Copy data from my server data folder
-     ~allennlp train -s models/lyrics_gan_mse --include-package src experiments/lyrics_gen.jsonnet~
+   1. `python src/prepare_lyrics_data_textMeanStd.py` (make sure to use the correct filename)
+   2.  ~allennlp train -s models/lyrics_gan_mse --include-package src experiments/lyrics_gen.jsonnet~
 ** Important Code
    - experiments
      - lyrics_gen.jsonnet (Configuration for GAN with MSE)
