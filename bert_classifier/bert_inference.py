@@ -6,6 +6,15 @@ import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 
 
+BERT_TOKENIZER = BertTokenizer.from_pretrained(
+        'bert-base-uncased',
+        cache_dir='bert-base-uncased-tokenizer-cache/'
+)
+BERT_CHECKPOINT = 'bert_models/checkpoint-1500'
+BERT_MODEL = BertForSequenceClassification.from_pretrained(BERT_CHECKPOINT)
+BERT_MODEL.eval()
+
+
 def fix_apos(line):
     # handle cases like " 's" " 'll" " 're" " n't" etc
     apostrophe = r"\s'([a-z]+)"
@@ -18,19 +27,13 @@ def text_processor(lines):
     return [fix_apos(l.strip()) for l in lines]
 
 
-def score_text(text_batch):
+def score_text(text_batch, tokenizer, model):
     """
     text_batch is a list of sentences
+    tokenizer is bert's tokenizer
+    model is the bert model
     """
-    tokenizer = BertTokenizer.from_pretrained(
-        'bert-base-uncased',
-        cache_dir='bert-base-uncased-tokenizer-cache/'
-    )
-    model = BertForSequenceClassification.from_pretrained('bert_models/checkpoint-1500')
-    model.eval()
 
-    # text_batch = text_processor(["a constant with a land",
-    #               "a old man 'll have n't four if you again"])
     text_batch = text_processor(text_batch)
 
     encoding = tokenizer(text_batch, return_tensors='pt', padding=True, truncation=True)
@@ -42,9 +45,12 @@ def score_text(text_batch):
         softmax_scores = torch.softmax(outputs.logits, dim=1)
         # extract the first dimension scores or the probability that a given
         # sentence is 'good' (has label 1)
-        return softmax_scores[:,1].cpu().numpy()
+        print(type(softmax_scores[:,1].cpu().numpy()[0].item()))
+        return list(zip(text_batch, softmax_scores[:,1].cpu().numpy()))
 
 
 if __name__ == '__main__':
     print(score_text(["a constant with a land",
-                      "a old man 'll have n't four if you again"]))
+                      "a old man 'll have n't four if you again"],
+                      BERT_TOKENIZER,
+                      BERT_MODEL))
